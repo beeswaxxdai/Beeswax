@@ -16,7 +16,7 @@ interface IFeeApprover {
 
     function setTokenUniswapPair(address _tokenUniswapPair) external;
    
-    function setCoreTokenAddress(address _coreTokenAddress) external;
+    function setBeeswaxTokenAddress(address _beeswaxTokenAddress) external;
     function updateTxState() external;
     function calculateAmountsAfterFee(        
         address sender, 
