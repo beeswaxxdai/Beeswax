@@ -1,4 +1,4 @@
-pragma solidity 0.6.12;
+pragma solidity ^0.6.0;
 
 
 import "./NBUNIERC20.sol";
@@ -6,38 +6,15 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 
 
-// CoreToken with Governance.
-contract CORE is NBUNIERC20 {
+// BEESWAXToken with Governance.
+contract BEESWAX is NBUNIERC20 {
 
 
-        /**
-     * @dev Sets the values for {name} and {symbol}, initializes {decimals} with
-     * a default value of 18.
-     *
-     * To select a different value for {decimals}, use {_setupDecimals}.
-     *
-     * All three of these values are immutable: they can only be set once during
-     * construction.
-     */
-    constructor(address router, address factory) public {
+    constructor(address router, address hny) public {
 
-        initialSetup(router, factory);
-        // _name = name;
-        // _symbol = symbol;
-        // _decimals = 18;
-        // _totalSupply = initialSupply;
-        // _balances[address(this)] = initialSupply;
-        // contractStartTimestamp = block.timestamp;
-        // // UNISWAP
-        // IUniswapV2Router02(router != address(0) ? router : 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f); // For testing
-        // IUniswapV2Factory(factory != address(0) ? factory : 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f); // For testing
-    }
-
-    // Copied and modified from YAM code:
-    // https://github.com/yam-finance/yam-protocol/blob/master/contracts/token/YAMGovernanceStorage.sol
-    // https://github.com/yam-finance/yam-protocol/blob/master/contracts/token/YAMGovernance.sol
-    // Which is copied and modified from COMPOUND:
-    // https://github.com/compound-finance/compound-protocol/blob/master/contracts/Governance/Comp.sol
+        initialSetup(router, hny);
+        
+    }    
 
     /// @notice A record of each accounts delegate
     mapping (address => address) internal _delegates;
@@ -47,7 +24,7 @@ contract CORE is NBUNIERC20 {
         uint32 fromBlock;
         uint256 votes;
     }
-    
+
 
     /// @notice A record of votes checkpoints for each account, by index
     mapping (address => mapping (uint32 => Checkpoint)) public checkpoints;
@@ -136,9 +113,9 @@ contract CORE is NBUNIERC20 {
         );
 
         address signatory = ecrecover(digest, v, r, s);
-        require(signatory != address(0), "CORE::delegateBySig: invalid signature");
-        require(nonce == nonces[signatory]++, "CORE::delegateBySig: invalid nonce");
-        require(now <= expiry, "CORE::delegateBySig: signature expired");
+        require(signatory != address(0), "BEESWAX::delegateBySig: invalid signature");
+        require(nonce == nonces[signatory]++, "BEESWAX::delegateBySig: invalid nonce");
+        require(now <= expiry, "BEESWAX::delegateBySig: signature expired");
         return _delegate(signatory, delegatee);
     }
 
@@ -168,7 +145,7 @@ contract CORE is NBUNIERC20 {
         view
         returns (uint256)
     {
-        require(blockNumber < block.number, "CORE::getPriorVotes: not yet determined");
+        require(blockNumber < block.number, "BEESWAX::getPriorVotes: not yet determined");
 
         uint32 nCheckpoints = numCheckpoints[account];
         if (nCheckpoints == 0) {
@@ -205,7 +182,7 @@ contract CORE is NBUNIERC20 {
         internal
     {
         address currentDelegate = _delegates[delegator];
-        uint256 delegatorBalance = balanceOf(delegator); // balance of underlying CORE tokens (not scaled);
+        uint256 delegatorBalance = balanceOf(delegator); // balance of underlying BEESWAX tokens (not scaled);
         _delegates[delegator] = delegatee;
 
         emit DelegateChanged(delegator, currentDelegate, delegatee);
@@ -241,7 +218,7 @@ contract CORE is NBUNIERC20 {
     )
         internal
     {
-        uint32 blockNumber = safe32(block.number, "CORE::_writeCheckpoint: block number exceeds 32 bits");
+        uint32 blockNumber = safe32(block.number, "BEESWAX::_writeCheckpoint: block number exceeds 32 bits");
 
         if (nCheckpoints > 0 && checkpoints[delegatee][nCheckpoints - 1].fromBlock == blockNumber) {
             checkpoints[delegatee][nCheckpoints - 1].votes = newVotes;
