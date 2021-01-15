@@ -18,7 +18,7 @@ Alternative yet sustainable yield farming ...
 
 # Initial Distribution
 
-The CORE team is kickstarting the initial distribution with a liquidity event. Contribute HNY to the WAX token during LGE to receive tokens, and the contributed HNY will be matched and added to the Honeyswap liquidity pool. Note that once added, liquidity tokens can not be removed from the WAX LP pools. This is by design. Read on to learn about why..
+The WAX team is kickstarting the initial distribution with a liquidity event. Contribute HNY to the WAX token during LGE to receive tokens, and the contributed HNY will be matched and added to the Honeyswap liquidity pool. Note that once added, liquidity tokens can not be removed from the WAX LP pools. This is by design. Read on to learn about why..
 
 # **Deflationary Farming**
 
@@ -46,7 +46,7 @@ able to withdraw YFI tokens from it.
 
 This creates an incentive to hold even more WAX by the holders of YFI tokens. Let the governance begin.
 
-# **2400 CORE Forever**
+# **2400 WAX Forever**
 
 Theres absolutely no way to create new WAX tokens. This means the
 circulating supply can only ever go down, period.
