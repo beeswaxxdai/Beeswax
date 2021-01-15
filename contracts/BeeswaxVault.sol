@@ -1,4 +1,4 @@
-pragma solidity 0.6.12;
+pragma solidity ^0.6.0;
 
 
 import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/IERC20.sol";
@@ -9,9 +9,9 @@ import "@openzeppelin/contracts-ethereum-package/contracts/access/Ownable.sol";
 import "./INBUNIERC20.sol";
 import "@nomiclabs/buidler/console.sol";
 
-// Core Vault distributes fees equally amongst staked pools
+// Beeswax Vault distributes fees equally amongst staked pools
 // Have fun reading it. Hopefully it's bug-free. God bless.
-contract CoreVault is OwnableUpgradeSafe {
+contract BeeswaxVault is OwnableUpgradeSafe {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
@@ -20,13 +20,13 @@ contract CoreVault is OwnableUpgradeSafe {
         uint256 amount; // How many  tokens the user has provided.
         uint256 rewardDebt; // Reward debt. See explanation below.
         //
-        // We do some fancy math here. Basically, any point in time, the amount of COREs
+        // We do some fancy math here. Basically, any point in time, the amount of BEESWAXs
         // entitled to a user but is pending to be distributed is:
         //
-        //   pending reward = (user.amount * pool.accCorePerShare) - user.rewardDebt
+        //   pending reward = (user.amount * pool.accBeeswaxPerShare) - user.rewardDebt
         //
         // Whenever a user deposits or withdraws  tokens to a pool. Here's what happens:
-        //   1. The pool's `accCorePerShare` (and `lastRewardBlock`) gets updated.
+        //   1. The pool's `accBeeswaxPerShare` (and `lastRewardBlock`) gets updated.
         //   2. User receives the pending reward sent to his/her address.
         //   3. User's `amount` gets updated.
         //   4. User's `rewardDebt` gets updated.
@@ -36,15 +36,15 @@ contract CoreVault is OwnableUpgradeSafe {
     // Info of each pool.
     struct PoolInfo {
         IERC20 token; // Address of  token contract.
-        uint256 allocPoint; // How many allocation points assigned to this pool. COREs to distribute per block.
-        uint256 accCorePerShare; // Accumulated COREs per share, times 1e12. See below.
+        uint256 allocPoint; // How many allocation points assigned to this pool. BEESWAXs to distribute per block.
+        uint256 accBeeswaxPerShare; // Accumulated BEESWAXs per share, times 1e12. See below.
         bool withdrawable; // Is this pool withdrawable?
         mapping(address => mapping(address => uint256)) allowance;
 
     }
 
-    // The CORE TOKEN!
-    INBUNIERC20 public core;
+    // The BEESWAX TOKEN!
+    INBUNIERC20 public beeswax;
     // Dev address.
     address public devaddr;
 
@@ -99,13 +99,13 @@ contract CoreVault is OwnableUpgradeSafe {
 
 
     function initialize(
-        INBUNIERC20 _core,
+        INBUNIERC20 _beeswax,
         address _devaddr, 
         address superAdmin
     ) public initializer {
         OwnableUpgradeSafe.__Ownable_init();
         DEV_FEE = 724;
-        core = _core;
+        beeswax = _beeswax;
         devaddr = _devaddr;
         contractStartBlock = block.number;
         _superAdmin = superAdmin;
@@ -118,7 +118,7 @@ contract CoreVault is OwnableUpgradeSafe {
 
 
     // Add a new token pool. Can only be called by the owner. 
-    // Note contract owner is meant to be a governance contract allowing CORE governance consensus
+    // Note contract owner is meant to be a governance contract allowing BEESWAX governance consensus
     function add(
         uint256 _allocPoint,
         IERC20 _token,
@@ -141,14 +141,14 @@ contract CoreVault is OwnableUpgradeSafe {
             PoolInfo({
                 token: _token,
                 allocPoint: _allocPoint,
-                accCorePerShare: 0,
+                accBeeswaxPerShare: 0,
                 withdrawable : _withdrawable
             })
         );
     }
 
-    // Update the given pool's COREs allocation point. Can only be called by the owner.
-        // Note contract owner is meant to be a governance contract allowing CORE governance consensus
+    // Update the given pool's BEESWAXs allocation point. Can only be called by the owner.
+        // Note contract owner is meant to be a governance contract allowing BEESWAX governance consensus
 
     function set(
         uint256 _pid,
@@ -166,7 +166,7 @@ contract CoreVault is OwnableUpgradeSafe {
     }
 
     // Update the given pool's ability to withdraw tokens
-    // Note contract owner is meant to be a governance contract allowing CORE governance consensus
+    // Note contract owner is meant to be a governance contract allowing BEESWAX governance consensus
     function setPoolWithdrawable(
         uint256 _pid,
         bool _withdrawable
@@ -178,7 +178,7 @@ contract CoreVault is OwnableUpgradeSafe {
 
     // Sets the dev fee for this contract
     // defaults at 7.24%
-    // Note contract owner is meant to be a governance contract allowing CORE governance consensus
+    // Note contract owner is meant to be a governance contract allowing BEESWAX governance consensus
     uint16 DEV_FEE;
     function setDevFee(uint16 _DEV_FEE) public onlyOwner {
         require(_DEV_FEE <= 1000, 'Dev fee clamped at 10%');
@@ -187,17 +187,17 @@ contract CoreVault is OwnableUpgradeSafe {
     uint256 pending_DEV_rewards;
 
 
-    // View function to see pending COREs on frontend.
-    function pendingCore(uint256 _pid, address _user)
+    // View function to see pending BEESWAXs on frontend.
+    function pendingBeeswax(uint256 _pid, address _user)
         public
         view
         returns (uint256)
     {
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][_user];
-        uint256 accCorePerShare = pool.accCorePerShare;
+        uint256 accBeeswaxPerShare = pool.accBeeswaxPerShare;
 
-        return user.amount.mul(accCorePerShare).div(1e12).sub(user.rewardDebt);
+        return user.amount.mul(accBeeswaxPerShare).div(1e12).sub(user.rewardDebt);
     }
 
     // Update reward vairables for all pools. Be careful of gas spending!
@@ -213,42 +213,42 @@ contract CoreVault is OwnableUpgradeSafe {
     }
 
     // ----
-    // Function that adds pending rewards, called by the CORE token.
+    // Function that adds pending rewards, called by the BEESWAX token.
     // ----
-    uint256 private coreBalance;
+    uint256 private beeswaxBalance;
     function addPendingRewards(uint256 _) public {
-        uint256 newRewards = core.balanceOf(address(this)).sub(coreBalance);
+        uint256 newRewards = beeswax.balanceOf(address(this)).sub(beeswaxBalance);
         
         if(newRewards > 0) {
-            coreBalance = core.balanceOf(address(this)); // If there is no change the balance didn't change
+            beeswaxBalance = beeswax.balanceOf(address(this)); // If there is no change the balance didn't change
             pendingRewards = pendingRewards.add(newRewards);
             rewardsInThisEpoch = rewardsInThisEpoch.add(newRewards);
         }
     }
 
     // Update reward variables of the given pool to be up-to-date.
-    function updatePool(uint256 _pid) internal returns (uint256 coreRewardWhole) {
+    function updatePool(uint256 _pid) internal returns (uint256 beeswaxRewardWhole) {
         PoolInfo storage pool = poolInfo[_pid];
 
         uint256 tokenSupply = pool.token.balanceOf(address(this));
         if (tokenSupply == 0) { // avoids division by 0 errors
             return 0;
         }
-        coreRewardWhole = pendingRewards // Multiplies pending rewards by allocation point of this pool and then total allocation
+        beeswaxRewardWhole = pendingRewards // Multiplies pending rewards by allocation point of this pool and then total allocation
             .mul(pool.allocPoint)        // getting the percent of total pending rewards this pool should get
             .div(totalAllocPoint);       // we can do this because pools are only mass updated
-        uint256 coreRewardFee = coreRewardWhole.mul(DEV_FEE).div(10000);
-        uint256 coreRewardToDistribute = coreRewardWhole.sub(coreRewardFee);
+        uint256 beeswaxRewardFee = beeswaxRewardWhole.mul(DEV_FEE).div(10000);
+        uint256 beeswaxRewardToDistribute = beeswaxRewardWhole.sub(beeswaxRewardFee);
 
-        pending_DEV_rewards = pending_DEV_rewards.add(coreRewardFee);
+        pending_DEV_rewards = pending_DEV_rewards.add(beeswaxRewardFee);
 
-        pool.accCorePerShare = pool.accCorePerShare.add(
-            coreRewardToDistribute.mul(1e12).div(tokenSupply)
+        pool.accBeeswaxPerShare = pool.accBeeswaxPerShare.add(
+            beeswaxRewardToDistribute.mul(1e12).div(tokenSupply)
         );
 
     }
 
-    // Deposit  tokens to CoreVault for CORE allocation.
+    // Deposit  tokens to BeeswaxVault for BEESWAX allocation.
     function deposit(uint256 _pid, uint256 _amount) public {
 
         PoolInfo storage pool = poolInfo[_pid];
@@ -270,7 +270,7 @@ contract CoreVault is OwnableUpgradeSafe {
         }
 
 
-        user.rewardDebt = user.amount.mul(pool.accCorePerShare).div(1e12);
+        user.rewardDebt = user.amount.mul(pool.accBeeswaxPerShare).div(1e12);
         emit Deposit(msg.sender, _pid, _amount);
     }
 
@@ -294,7 +294,7 @@ contract CoreVault is OwnableUpgradeSafe {
             user.amount = user.amount.add(_amount); // This is depositedFor address
         }
 
-        user.rewardDebt = user.amount.mul(pool.accCorePerShare).div(1e12); /// This is deposited for address
+        user.rewardDebt = user.amount.mul(pool.accBeeswaxPerShare).div(1e12); /// This is deposited for address
         emit Deposit(depositFor, _pid, _amount);
 
     }
@@ -321,7 +321,7 @@ contract CoreVault is OwnableUpgradeSafe {
     }
     
 
-    // Withdraw  tokens from CoreVault.
+    // Withdraw  tokens from BeeswaxVault.
     function withdraw(uint256 _pid, uint256 _amount) public {
 
         _withdraw(_pid, _amount, msg.sender, msg.sender);
@@ -339,13 +339,13 @@ contract CoreVault is OwnableUpgradeSafe {
         require(user.amount >= _amount, "withdraw: not good");
 
         massUpdatePools();
-        updateAndPayOutPending(_pid, from); // Update balances of from this is not withdrawal but claiming CORE farmed
+        updateAndPayOutPending(_pid, from); // Update balances of from this is not withdrawal but claiming BEESWAX farmed
 
         if(_amount > 0) {
             user.amount = user.amount.sub(_amount);
             pool.token.safeTransfer(address(to), _amount);
         }
-        user.rewardDebt = user.amount.mul(pool.accCorePerShare).div(1e12);
+        user.rewardDebt = user.amount.mul(pool.accBeeswaxPerShare).div(1e12);
 
         emit Withdraw(to, _pid, _amount);
     }
@@ -353,10 +353,10 @@ contract CoreVault is OwnableUpgradeSafe {
     function updateAndPayOutPending(uint256 _pid, address from) internal {
 
 
-        uint256 pending = pendingCore(_pid, from);
+        uint256 pending = pendingBeeswax(_pid, from);
 
         if(pending > 0) {
-            safeCoreTransfer(from, pending);
+            safeBeeswaxTransfer(from, pending);
         }
 
     }
@@ -395,18 +395,17 @@ contract CoreVault is OwnableUpgradeSafe {
         // No mass update dont update pending rewards
     }
 
-    // Safe core transfer function, just in case if rounding error causes pool to not have enough COREs.
-    function safeCoreTransfer(address _to, uint256 _amount) internal {
-
-        uint256 coreBal = core.balanceOf(address(this));
-        
-        if (_amount > coreBal) {
-            core.transfer(_to, coreBal);
-            coreBalance = core.balanceOf(address(this));
+    // Safe beeswax transfer function, just in case if rounding error causes pool to not have enough BEESWAXs.
+    function safeBeeswaxTransfer(address _to, uint256 _amount) internal {
+        if(_amount == 0) return;
+        uint256 beeswaxBal = beeswax.balanceOf(address(this));
+        if (_amount > beeswaxBal) {
+            beeswax.transfer(_to, beeswaxBal);
+            beeswaxBalance = beeswax.balanceOf(address(this));
 
         } else {
-            core.transfer(_to, _amount);
-            coreBalance = core.balanceOf(address(this));
+            beeswax.transfer(_to, _amount);
+            beeswaxBalance = beeswax.balanceOf(address(this));
 
         }
         //Avoids possible recursion loop
@@ -419,16 +418,16 @@ contract CoreVault is OwnableUpgradeSafe {
     function transferDevFee() public {
         if(pending_DEV_rewards == 0) return;
 
-        uint256 coreBal = core.balanceOf(address(this));
-        if (pending_DEV_rewards > coreBal) {
+        uint256 beeswaxBal = beeswax.balanceOf(address(this));
+        if (pending_DEV_rewards > beeswaxBal) {
 
-            core.transfer(devaddr, coreBal);
-            coreBalance = core.balanceOf(address(this));
+            beeswax.transfer(devaddr, beeswaxBal);
+            beeswaxBalance = beeswax.balanceOf(address(this));
 
         } else {
 
-            core.transfer(devaddr, pending_DEV_rewards);
-            coreBalance = core.balanceOf(address(this));
+            beeswax.transfer(devaddr, pending_DEV_rewards);
+            beeswaxBalance = beeswax.balanceOf(address(this));
 
         }
 
@@ -437,7 +436,7 @@ contract CoreVault is OwnableUpgradeSafe {
 
     // Update dev address by the previous dev.
     // Note onlyOwner functions are meant for the governance contract
-    // allowing CORE governance token holders to do this functions.
+    // allowing BEESWAX governance token holders to do this functions.
     function setDevFeeReciever(address _devaddr) public onlyOwner {
         devaddr = _devaddr;
     }
