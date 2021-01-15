@@ -1,6 +1,6 @@
 pragma solidity ^0.6.0;
 
 
-interface ICoreVault {
+interface IBeeswaxVault {
     function addPendingRewards(uint _amount) external;
 }
