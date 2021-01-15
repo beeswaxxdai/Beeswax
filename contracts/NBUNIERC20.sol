@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -7,18 +6,14 @@ import "./INBUNIERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "./IFeeApprover.sol";
-import "./ICoreVault.sol";
+import "./IBeeswaxVault.sol";
 import "@nomiclabs/buidler/console.sol";
-
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol"; // for WETH
-import "./uniswapv2/interfaces/IUniswapV2Factory.sol"; // interface factorys
-import "./uniswapv2/interfaces/IUniswapV2Router02.sol"; // interface factorys
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "./uniswapv2/interfaces/IUniswapV2Factory.sol"; 
+import "./uniswapv2/interfaces/IUniswapV2Router02.sol";
 import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol';
-import "./uniswapv2/interfaces/IWETH.sol"; 
-
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-// import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /**
  * @dev Implementation of the {IERC20} interface.
@@ -45,6 +40,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
  * allowances. See {IERC20-approve}.
  */
 contract NBUNIERC20 is Context, INBUNIERC20, Ownable {
+
     using SafeMath for uint256;
     using Address for address;
 
@@ -52,7 +48,19 @@ contract NBUNIERC20 is Context, INBUNIERC20, Ownable {
 
     mapping(address => mapping(address => uint256)) private _allowances;
 
-    event LiquidityAddition(address indexed dst, uint value);
+    string public liquidityGenerationParticipationAgreement;
+    
+    uint256 public totalHNYContributed;
+
+    uint256 public pairHNY_LP1HNY;
+	
+	mapping (address => uint)  public hnyContributed;
+
+	
+	bool public LPGenerationCompleted;
+
+    event LiquidityAdditionHNY(address indexed dst, uint value);
+
     event LPTokenClaimed(address dst, uint value);
 
     uint256 private _totalSupply;
@@ -60,8 +68,15 @@ contract NBUNIERC20 is Context, INBUNIERC20, Ownable {
     string private _name;
     string private _symbol;
     uint8 private _decimals;
-    uint256 public constant initialSupply = 10000e18; // 10k 
+
     uint256 public contractStartTimestamp;
+
+    address public hny;
+
+    IUniswapV2Router02 public router;
+    IUniswapV2Factory public factory;
+
+    IUniswapV2Pair public pairHNY;
 
 
     /**
@@ -71,15 +86,31 @@ contract NBUNIERC20 is Context, INBUNIERC20, Ownable {
         return _name;
     }
 
-    function initialSetup(address router, address factory) internal {
-        _name = "cVault.finance";
-        _symbol = "CORE";
+    function initialSetup(address router_, address hny_) internal {
+        
+        _name = "Beeswax";
+        _symbol = "WAX";
         _decimals = 18;
-        _mint(address(this), initialSupply);
+
+        uint256 initialSupply = 2400e18;
+        //10% for marketing
+        _mint(_msgSender(), initialSupply.div(100).mul(10));
+        //90% sent to contract
+        _mint(address(this), initialSupply.div(100).mul(90));
+
         contractStartTimestamp = block.timestamp;
-        uniswapRouterV2 = IUniswapV2Router02(router != address(0) ? router : 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D); // For testing
-        uniswapFactory = IUniswapV2Factory(factory != address(0) ? factory : 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f); // For testing
-        createUniswapPairMainnet();
+        
+        router = IUniswapV2Router02(router_);
+        factory = IUniswapV2Factory(router.factory());
+
+        hny = hny_;
+        
+        pairHNY = IUniswapV2Pair(factory.createPair(
+            hny,
+            address(this)
+        ));
+		
+        liquidityGenerationParticipationAgreement = liquidityGenerationParticipationAgreement = "I'm not a resident of the United States \n I understand that this contract is provided with no warranty of any kind. \n I agree to not hold the contract creators, BEESWAX team members or anyone associated with this event liable for any damage monetary and otherwise I might onccur. \n I understand that any smart contract interaction carries an inherent risk.";
     }
 
     /**
@@ -124,126 +155,87 @@ contract NBUNIERC20 is Context, INBUNIERC20, Ownable {
         return _balances[_owner];
     }
 
-
-    IUniswapV2Router02 public uniswapRouterV2;
-    IUniswapV2Factory public uniswapFactory;
-
-
-    address public tokenUniswapPair;
-
-    function createUniswapPairMainnet() public returns (address) {
-        require(tokenUniswapPair == address(0), "Token: pool already created");
-        tokenUniswapPair = uniswapFactory.createPair(
-            address(uniswapRouterV2.WETH()),
-            address(this)
-        );
-        return tokenUniswapPair;
-    }
-
-
-    //// Liquidity generation logic
-    /// Steps - All tokens tat will ever exist go to this contract
-    /// This contract accepts ETH as payable
-    /// ETH is mapped to people
-    /// When liquidity generationevent is over veryone can call 
-    /// the mint LP function
-    // which will put all the ETH and tokens inside the uniswap contract
-    /// without any involvement
-    /// This LP will go into this contract
-    /// And will be able to proportionally be withdrawn baed on ETH put in
-    /// A emergency drain function allows the contract owner to drain all ETH and tokens from this contract
-    /// After the liquidity generation event happened. In case something goes wrong, to send ETH back
-
-
-    string public liquidityGenerationParticipationAgreement = "I'm not a resident of the United States \n I understand that this contract is provided with no warranty of any kind. \n I agree to not hold the contract creators, CORE team members or anyone associated with this event liable for any damage monetary and otherwise I might onccur. \n I understand that any smart contract interaction carries an inherent risk.";
-
     function getSecondsLeftInLiquidityGenerationEvent() public view returns (uint256) {
         require(liquidityGenerationOngoing(), "Event over");
-        console.log("7 days since start is", contractStartTimestamp.add(7 days), "Time now is", block.timestamp);
-        return contractStartTimestamp.add(7 days).sub(block.timestamp);
+        return contractStartTimestamp.add(5 days).sub(block.timestamp);
     }
 
     function liquidityGenerationOngoing() public view returns (bool) {
-        console.log("7 days since start is", contractStartTimestamp.add(7 days), "Time now is", block.timestamp);
-        console.log("liquidity generation ongoing", contractStartTimestamp.add(7 days) < block.timestamp);
-        return contractStartTimestamp.add(7 days) > block.timestamp;
+        console.log("liquidity generation ongoing", contractStartTimestamp.add(5 days) < block.timestamp);
+        return contractStartTimestamp.add(5 days) > block.timestamp;
     }
 
-    // Emergency drain in case of a bug
-    // Adds all funds to owner to refund people
-    // Designed to be as simple as possible
-    function emergencyDrain24hAfterLiquidityGenerationEventIsDone() public onlyOwner {
-        require(contractStartTimestamp.add(8 days) < block.timestamp, "Liquidity generation grace period still ongoing"); // About 24h after liquidity generation happens        
-        (bool success, ) = msg.sender.call.value(address(this).balance)("");
-        require(success, "Transfer failed.");
-        _balances[msg.sender] = _balances[address(this)];
-        _balances[address(this)] = 0;
-    }
-
-    uint256 public totalLPTokensMinted;
-    uint256 public totalETHContributed;
-    uint256 public LPperETHUnit;
-
-
-    bool public LPGenerationCompleted;
-    // Sends all avaibile balances and mints LP tokens
-    // Possible ways this could break addressed 
-    // 1) Multiple calls and resetting amounts - addressed with boolean
-    // 2) Failed WETH wrapping/unwrapping addressed with checks
-    // 3) Failure to create LP tokens, addressed with checks
-    // 4) Unacceptable division errors . Addressed with multiplications by 1e18
-    // 5) Pair not set - impossible since its set in constructor
-    function addLiquidityToUniswapCORExWETHPair() public {
+    function transferLiquidityToHoneyswap() public {
+        
         require(liquidityGenerationOngoing() == false, "Liquidity generation onging");
         require(LPGenerationCompleted == false, "Liquidity generation already finished");
-        totalETHContributed = address(this).balance;
-        IUniswapV2Pair pair = IUniswapV2Pair(tokenUniswapPair);
-        console.log("Balance of this", totalETHContributed / 1e18);
-        //Wrap eth
-        address WETH = uniswapRouterV2.WETH();
-        IWETH(WETH).deposit{value : totalETHContributed}();
-        require(address(this).balance == 0 , "Transfer Failed");
-        IWETH(WETH).transfer(address(pair),totalETHContributed);
-        _balances[address(pair)] = _balances[address(this)];
-        _balances[address(this)] = 0;
-        pair.mint(address(this));
-        totalLPTokensMinted = pair.balanceOf(address(this));
-        console.log("Total tokens minted",totalLPTokensMinted);
-        require(totalLPTokensMinted != 0 , "LP creation failed");
-        LPperETHUnit = totalLPTokensMinted.mul(1e18).div(totalETHContributed); // 1e18x for  change
-        console.log("Total per LP token", LPperETHUnit);
-        require(LPperETHUnit != 0 , "LP creation failed");
+        
+        require(IERC20(hny).balanceOf(address(this)) > 0, "No funds raised");
+        
+        uint transferTokenAmount = _balances[address(this)];
+        
+        
+        uint256 hnyBalance = IERC20(hny).balanceOf(address(this));
+        
+        //transfer HNY to pairHNY
+        IERC20(hny).transfer(address(pairHNY), hnyBalance);
+        
+        //transfer token to pairHNY
+        _balances[address(pairHNY)] = transferTokenAmount;
+        emit Transfer(address(this), address(pairHNY), transferTokenAmount);
+        
+        //mint and transfer pairHNY LP tokens
+        pairHNY.mint(address(this));
+        
+
+        uint pairHNY_LPMinted = pairHNY.balanceOf(address(this));
+        
+        console.log("HNY Pair - Total tokens minted",pairHNY_LPMinted);
+        require(pairHNY_LPMinted != 0 , "HNY Pair - LP creation failed");
+        
+        pairHNY_LP1HNY = pairHNY_LPMinted.mul(1e18).div(hnyBalance); // 1e18x for  change
+        
+        console.log("HNY Pair - HNY per LP token", pairHNY_LP1HNY);
+        require(pairHNY_LP1HNY != 0 , "HNY Pair - HNY per LP token = 0");
+        
         LPGenerationCompleted = true;
+        
+        _balances[address(this)] = 0;
 
     }
 
-
-    mapping (address => uint)  public ethContributed;
-    // Possible ways this could break addressed
-    // 1) No ageement to terms - added require
-    // 2) Adding liquidity after generaion is over - added require
-    // 3) Overflow from uint - impossible there isnt that much ETH aviable 
-    // 4) Depositing 0 - not an issue it will just add 0 to tally
-    function addLiquidity(bool agreesToTermsOutlinedInLiquidityGenerationParticipationAgreement) public payable {
+    function addLiquidityHNY(bool agreesToTermsOutlinedInLiquidityGenerationParticipationAgreement, uint256 amount) public {
         require(liquidityGenerationOngoing(), "Liquidity Generation Event over");
         require(agreesToTermsOutlinedInLiquidityGenerationParticipationAgreement, "No agreement provided");
-        ethContributed[msg.sender] += msg.value; // Overflow protection from safemath is not neded here 
-        totalETHContributed = totalETHContributed.add(msg.value); // for front end display during LGE. This resets with definietly correct balance while calling pair.
-        emit LiquidityAddition(msg.sender, msg.value);
+        require(amount > 0, "amount must be greater than zero");
+        
+        require(IERC20(hny).allowance(_msgSender(), address(this)) >= amount, "No allowance granted for contract. Please APPROVE first and try again.");
+        
+        IERC20(hny).transferFrom(_msgSender(), address(this), amount);
+        
+        hnyContributed[_msgSender()] += amount; // Overflow protection from safemath is not neded here
+        totalHNYContributed = totalHNYContributed.add(amount); // for front end display during LGE. This resets with definietly correct balance while calling pair.
+        emit LiquidityAdditionHNY(_msgSender(), amount);
     }
-    
-    // Possible ways this could break addressed
-    // 1) Accessing before event is over and resetting eth contributed -- added require
-    // 2) No uniswap pair - impossible at this moment because of the LPGenerationCompleted bool
-    // 3) LP per unit is 0 - impossible checked at generation function
+
     function claimLPTokens() public {
+
         require(LPGenerationCompleted, "Event not over yet");
-        require(ethContributed[msg.sender] > 0 , "Nothing to claim, move along");
-        IUniswapV2Pair pair = IUniswapV2Pair(tokenUniswapPair);
-        uint256 amountLPToTransfer = ethContributed[msg.sender].mul(LPperETHUnit).div(1e18);
-        pair.transfer(msg.sender, amountLPToTransfer); // stored as 1e18x value for change
-        ethContributed[msg.sender] = 0;
-        emit LPTokenClaimed(msg.sender, amountLPToTransfer);
+        require(hnyContributed[_msgSender()] > 0, "Nothing to claim, move along");
+        
+        uint256 transferAmount = 0;
+        
+        if(hnyContributed[_msgSender()] > 0) {
+            
+            transferAmount = hnyContributed[_msgSender()].mul(pairHNY_LP1HNY).div(1e18);
+            
+            pairHNY.transfer(_msgSender(), transferAmount); // stored as 1e18x value for change
+            
+            hnyContributed[_msgSender()] = 0;
+            
+            emit LPTokenClaimed(_msgSender(), transferAmount);
+            
+        }
     }
 
 
@@ -255,11 +247,7 @@ contract NBUNIERC20 is Context, INBUNIERC20, Ownable {
      * - `recipient` cannot be the zero address.
      * - the caller must have a balance of at least `amount`.
      */
-    function transfer(address recipient, uint256 amount)
-        public
-        virtual
-        override
-        returns (bool)
+    function transfer(address recipient, uint256 amount) public virtual override returns (bool)
     {
         _transfer(_msgSender(), recipient, amount);
         return true;
@@ -398,8 +386,6 @@ contract NBUNIERC20 is Context, INBUNIERC20, Ownable {
     address public feeDistributor;
 
 
-
-
     /**
      * @dev Moves tokens `amount` from `sender` to `recipient`.
      *
@@ -419,18 +405,15 @@ contract NBUNIERC20 is Context, INBUNIERC20, Ownable {
         address recipient,
         uint256 amount
     ) internal virtual {
-        require(sender != address(0), "ERC20: transfer from the zero address");
-        require(recipient != address(0), "ERC20: transfer to the zero address");
-        
-
-
+        require(sender != address(0), "Transfer: transfer from the zero address");
+        require(recipient != address(0), "Transfer: transfer to the zero address");
         _beforeTokenTransfer(sender, recipient, amount);
 
         _balances[sender] = _balances[sender].sub(
             amount,
             "ERC20: transfer amount exceeds balance"
         );
-        
+
         (uint256 transferToAmount, uint256 transferToFeeDistributorAmount) = IFeeApprover(transferCheckerAddress).calculateAmountsAfterFee(sender, recipient, amount);
         console.log("Sender is :" , sender, "Recipent is :", recipient);
         console.log("amount is ", amount);
@@ -441,12 +424,11 @@ contract NBUNIERC20 is Context, INBUNIERC20, Ownable {
         _balances[recipient] = _balances[recipient].add(transferToAmount);
         emit Transfer(sender, recipient, transferToAmount);
 
-        
         if(transferToFeeDistributorAmount > 0 && feeDistributor != address(0)){
             _balances[feeDistributor] = _balances[feeDistributor].add(transferToFeeDistributorAmount);
             emit Transfer(sender, feeDistributor, transferToFeeDistributorAmount);
             if(feeDistributor != address(0)){
-                ICoreVault(feeDistributor).addPendingRewards(transferToFeeDistributorAmount);
+                IBeeswaxVault(feeDistributor).addPendingRewards(transferToFeeDistributorAmount);
             }
         }
     }
@@ -460,6 +442,7 @@ contract NBUNIERC20 is Context, INBUNIERC20, Ownable {
      *
      * - `to` cannot be the zero address.
      */
+
     function _mint(address account, uint256 amount) internal virtual {
         require(account != address(0), "ERC20: mint to the zero address");
 
@@ -549,4 +532,5 @@ contract NBUNIERC20 is Context, INBUNIERC20, Ownable {
         address to,
         uint256 amount
     ) internal virtual {}
+
 }
