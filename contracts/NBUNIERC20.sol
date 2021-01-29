@@ -53,6 +53,7 @@ contract NBUNIERC20 is Context, INBUNIERC20, Ownable {
     uint256 public totalHNYContributed;
 
     uint256 public pairHNY_LP1HNY;
+    uint256 public pairHNY_LPMinted;
 	
 	mapping (address => uint)  public hnyContributed;
 
@@ -93,10 +94,8 @@ contract NBUNIERC20 is Context, INBUNIERC20, Ownable {
         _decimals = 18;
 
         uint256 initialSupply = 2400e18;
-        //10% for marketing
-        _mint(_msgSender(), initialSupply.div(100).mul(10));
-        //90% sent to contract
-        _mint(address(this), initialSupply.div(100).mul(90));
+        
+        _mint(address(this), initialSupply);
 
         contractStartTimestamp = block.timestamp;
         
@@ -188,7 +187,7 @@ contract NBUNIERC20 is Context, INBUNIERC20, Ownable {
         pairHNY.mint(address(this));
         
 
-        uint pairHNY_LPMinted = pairHNY.balanceOf(address(this));
+        pairHNY_LPMinted = pairHNY.balanceOf(address(this));
         
         console.log("HNY Pair - Total tokens minted",pairHNY_LPMinted);
         require(pairHNY_LPMinted != 0 , "HNY Pair - LP creation failed");
