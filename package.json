@@ -17,9 +17,15 @@
     "@openzeppelin/upgrades": "^2.8.0",
     "@uniswap/lib": "^1.1.4",
     "@uniswap/v2-core": "^1.0.1",
+    "dotenv": "^8.2.0",
+    "ethereumjs-tx": "^2.1.2",
+    "fs": "0.0.1-security",
+    "solc": "^0.7.4",
     "truffle": "^5.1.41",
-    "truffle-flattener": "^1.4.4",
-    "truffle-ledger-provider": "https://github.com/UMAprotocol/truffle-ledger-provider"
+    "truffle-flattener": "^1.5.0",
+    "truffle-hdwallet-provider": "^1.0.17",
+    "truffle-ledger-provider": "https://github.com/UMAprotocol/truffle-ledger-provider",
+    "truffle-plugin-verify": "^0.4.0"
   },
   "devDependencies": {
     "@nomiclabs/buidler": "^1.4.5",
